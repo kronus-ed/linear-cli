@@ -1,5 +1,44 @@
 # linear cli
 
+a fork of [schpet/linear-cli](https://github.com/schpet/linear-cli) with **git worktree support**.
+
+## install
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/kronus-ed/linear-cli/releases/latest/download/linear-installer.sh | sh
+```
+
+## what's different in this fork
+
+### git worktree support
+
+when creating or starting an issue, you can create a **git worktree** instead of switching branches. this keeps each issue in its own directory under `.worktrees/`, so you can work on multiple issues simultaneously without stashing or switching.
+
+```bash
+linear issue create    # interactive prompt offers: No / Switch branch / Create worktree
+linear issue start     # same three-way prompt
+linear issue start -W  # force worktree mode
+```
+
+the default mode is **worktree**. configure via `.linear.toml`:
+
+```toml
+start_mode = "worktree"    # or "branch" to restore original behavior
+worktree_stale_days = 7    # warn about worktrees with no commits in N days
+```
+
+after creating an issue, the CLI checks for stale worktrees and prints a warning:
+
+```
+⚠ Stale worktrees detected:
+  .worktrees/ed/cli-123-fix-bug — last commit 23 days ago
+  Remove with: git worktree remove <path>
+```
+
+---
+
+## overview
+
 a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and [jj](https://www.jj-vcs.dev/) aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
 **works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
@@ -12,7 +51,7 @@ linear config               # setup your repo, it writes a config file
 linear issue mine           # list unstarted issues assigned to you
 linear issue query --all-teams  # query issues across all teams
 linear issue query --search "login bug"  # search issues in your configured team
-linear issue start          # choose an issue to start, creates a branch
+linear issue start          # choose an issue to start, creates a branch or worktree
 linear issue start ABC-123  # start a specific issue
 linear issue view           # see current branch's issue as markdown
 linear issue pr             # makes a PR with title/body preset, using gh cli
@@ -37,13 +76,7 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 
 </details>
 
-## install
-
-### homebrew
-
-```
-brew install schpet/tap/linear
-```
+## other install methods
 
 ### deno via jsr
 
@@ -51,37 +84,14 @@ brew install schpet/tap/linear
 deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
 ```
 
-### npm / bun / pnpm
-
-install as a dev dependency to pin a version in your project:
-
-```bash
-npm install -D @schpet/linear-cli
-# or
-bun add -D @schpet/linear-cli
-# or
-pnpm add -D @schpet/linear-cli
-```
-
-then run via your package manager:
-
-```bash
-npx linear issue list
-bunx linear issue list
-```
-
-> **note:** this package ships pre-built binaries
-
-package on npm: [@schpet/linear-cli](https://www.npmjs.com/package/@schpet/linear-cli)
-
 ### binaries
 
-https://github.com/schpet/linear-cli/releases/latest
+https://github.com/kronus-ed/linear-cli/releases/latest
 
 ### local dev
 
 ```bash
-git clone https://github.com/schpet/linear-cli
+git clone https://github.com/kronus-ed/linear-cli
 cd linear-cli
 deno task install
 ```
@@ -138,7 +148,8 @@ linear issue list -a   # open issue list in Linear.app
 linear issue query --search "login bug"  # search issues by text in your configured team
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
 linear issue query --all-teams --json --limit 0  # export all issues as JSON
-linear issue start     # create/switch to issue branch and mark as started
+linear issue start     # create/switch to issue branch or worktree and mark as started
+linear issue start -W  # force worktree mode
 linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
 linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
@@ -233,13 +244,15 @@ linear completions     # generate shell completions
 
 the CLI supports configuration via environment variables or a `.linear.toml` config file. environment variables take precedence over config file values.
 
-| option          | env var                  | toml key          | example                    | description                           |
-| --------------- | ------------------------ | ----------------- | -------------------------- | ------------------------------------- |
-| Team ID         | `LINEAR_TEAM_ID`         | `team_id`         | `"ENG"`                    | default team for operations           |
-| Workspace       | `LINEAR_WORKSPACE`       | `workspace`       | `"mycompany"`              | workspace slug for web/app URLs       |
-| Issue sort      | `LINEAR_ISSUE_SORT`      | `issue_sort`      | `"priority"` or `"manual"` | how to sort issue lists               |
-| VCS             | `LINEAR_VCS`             | `vcs`             | `"git"` or `"jj"`          | version control system (default: git) |
-| Download images | `LINEAR_DOWNLOAD_IMAGES` | `download_images` | `true` or `false`          | download images when viewing issues   |
+| option              | env var                        | toml key             | example                    | description                                    |
+| ------------------- | ------------------------------ | -------------------- | -------------------------- | ---------------------------------------------- |
+| Team ID             | `LINEAR_TEAM_ID`               | `team_id`            | `"ENG"`                    | default team for operations                    |
+| Workspace           | `LINEAR_WORKSPACE`             | `workspace`          | `"mycompany"`              | workspace slug for web/app URLs                |
+| Issue sort          | `LINEAR_ISSUE_SORT`            | `issue_sort`         | `"priority"` or `"manual"` | how to sort issue lists                        |
+| VCS                 | `LINEAR_VCS`                   | `vcs`                | `"git"` or `"jj"`          | version control system (default: git)          |
+| Start mode          | `LINEAR_START_MODE`            | `start_mode`         | `"worktree"` or `"branch"` | how to start work (default: worktree)          |
+| Worktree stale days | `LINEAR_WORKTREE_STALE_DAYS`   | `worktree_stale_days`| `7`                        | days before worktree is considered stale       |
+| Download images     | `LINEAR_DOWNLOAD_IMAGES`       | `download_images`    | `true` or `false`          | download images when viewing issues            |
 
 the config file can be placed at (checked in order, first found is used):
 
@@ -321,3 +334,4 @@ linear's UI is incredibly good but it slows me down. i find the following pretty
 this cli solves this. it knows what you're working on (via git branches or jj commit trailers), does the work of managing your version control state, and will write your pull request details for you.
 
 [^1]: creating an API key requires member access, it is not available for guest accounts.
+
