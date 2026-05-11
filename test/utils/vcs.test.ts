@@ -128,7 +128,13 @@ Deno.test("startVcsWork - propagates git checkout errors when not in a git repo"
     Deno.chdir(tempDir)
 
     await assertRejects(
-      async () => await startVcsWork("ABC-123", "feature/ABC-123-test"),
+      async () =>
+        await startVcsWork(
+          "ABC-123",
+          "feature/ABC-123-test",
+          undefined,
+          "branch",
+        ),
       CliError,
       "Failed to create branch",
     )
@@ -171,7 +177,12 @@ Deno.test("startVcsWork - propagates git checkout errors when source ref doesn't
     // Try to create a branch from a non-existent ref
     await assertRejects(
       async () =>
-        await startVcsWork("ABC-123", "feature/ABC-123-test", "nonexistent"),
+        await startVcsWork(
+          "ABC-123",
+          "feature/ABC-123-test",
+          "nonexistent",
+          "branch",
+        ),
       CliError,
       "Failed to create branch",
     )
