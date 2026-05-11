@@ -1,5 +1,8 @@
 import { assertEquals } from "@std/assert"
-import { formatStaleWorktreeWarning, type StaleWorktreeInfo } from "../../src/utils/worktree.ts"
+import {
+  formatStaleWorktreeWarning,
+  type StaleWorktreeInfo,
+} from "../../src/utils/worktree.ts"
 
 Deno.test("formatStaleWorktreeWarning - empty array returns empty string", () => {
   const result = formatStaleWorktreeWarning([])

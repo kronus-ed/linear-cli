@@ -1,6 +1,6 @@
 import { join } from "@std/path"
 import { Select } from "@cliffy/prompt"
-import { yellow, gray, bold } from "@std/fmt/colors"
+import { bold, gray, yellow } from "@std/fmt/colors"
 import { CliError } from "./errors.ts"
 import { getOption } from "../config.ts"
 
@@ -248,7 +248,9 @@ export async function getStaleWorktrees(
   }
 
   // Sort by staleness (oldest first)
-  staleWorktrees.sort((a, b) => a.lastCommitDate.getTime() - b.lastCommitDate.getTime())
+  staleWorktrees.sort((a, b) =>
+    a.lastCommitDate.getTime() - b.lastCommitDate.getTime()
+  )
 
   return staleWorktrees
 }
@@ -268,7 +270,9 @@ export function formatStaleWorktreeWarning(
     const daysText = wt.daysSinceLastCommit === 1
       ? "1 day ago"
       : `${wt.daysSinceLastCommit} days ago`
-    lines.push(yellow(`  ${wt.relativePath}`) + gray(` — last commit ${daysText}`))
+    lines.push(
+      yellow(`  ${wt.relativePath}`) + gray(` — last commit ${daysText}`),
+    )
   }
   lines.push(gray(`  Remove with: git worktree remove <path>`))
   return lines.join("\n")

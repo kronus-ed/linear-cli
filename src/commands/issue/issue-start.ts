@@ -40,7 +40,10 @@ export const startCommand = new Command()
     "Create a git worktree instead of switching branches",
   )
   .action(
-    async ({ allAssignees, unassigned, fromRef, branch, worktree }, issueId) => {
+    async (
+      { allAssignees, unassigned, fromRef, branch, worktree },
+      issueId,
+    ) => {
       try {
         const teamId = getTeamKey()
         if (!teamId) {
@@ -99,4 +102,3 @@ export const startCommand = new Command()
       }
     },
   )
-

@@ -8,7 +8,11 @@ import {
 } from "./linear.ts"
 import { getOption } from "../config.ts"
 import { encodeBase64 } from "@std/encoding/base64"
-import { type GitStartMode, getNoIssueFoundMessage, startVcsWork } from "./vcs.ts"
+import {
+  getNoIssueFoundMessage,
+  type GitStartMode,
+  startVcsWork,
+} from "./vcs.ts"
 import { LINEAR_WEB_BASE_URL } from "../const.ts"
 
 export async function openIssuePage(
@@ -108,4 +112,3 @@ export async function startWorkOnIssue(
     console.error("Failed to update issue state:", error)
   }
 }
-

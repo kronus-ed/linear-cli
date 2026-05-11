@@ -27,7 +27,7 @@ import {
 } from "../../utils/linear.ts"
 import { startWorkOnIssue } from "../../utils/actions.ts"
 import { checkStaleWorktrees } from "../../utils/worktree.ts"
-import { type GitStartMode, getDefaultStartMode } from "../../utils/vcs.ts"
+import { getDefaultStartMode, type GitStartMode } from "../../utils/vcs.ts"
 import {
   CliError,
   handleError,
