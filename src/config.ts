@@ -138,6 +138,12 @@ const OptionsSchema = v.object({
   workspace: v.optional(v.string()),
   issue_sort: v.optional(v.picklist(["manual", "priority"])),
   vcs: v.optional(v.picklist(["git", "jj"])),
+  start_mode: v.optional(v.picklist(["branch", "worktree"])),
+  worktree_stale_days: v.optional(v.pipe(v.unknown(), v.transform((val) => {
+    if (val == null) return undefined
+    const num = Number(val)
+    return isNaN(num) ? undefined : num
+  }))),
   download_images: v.optional(BooleanLike),
   hyperlink_format: v.optional(v.string()),
   attachment_dir: v.optional(v.string()),

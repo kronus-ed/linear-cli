@@ -8,7 +8,7 @@ import {
 } from "./linear.ts"
 import { getOption } from "../config.ts"
 import { encodeBase64 } from "@std/encoding/base64"
-import { getNoIssueFoundMessage, startVcsWork } from "./vcs.ts"
+import { type GitStartMode, getNoIssueFoundMessage, startVcsWork } from "./vcs.ts"
 import { LINEAR_WEB_BASE_URL } from "../const.ts"
 
 export async function openIssuePage(
@@ -84,6 +84,7 @@ export async function startWorkOnIssue(
   teamId: string,
   gitSourceRef?: string,
   customBranchName?: string,
+  startMode?: GitStartMode,
 ) {
   const { branchName: defaultBranchName } = await fetchIssueDetails(
     issueId,
@@ -92,7 +93,7 @@ export async function startWorkOnIssue(
   const branchName = customBranchName || defaultBranchName
 
   // Start VCS work (git or jj)
-  await startVcsWork(issueId, branchName, gitSourceRef)
+  await startVcsWork(issueId, branchName, gitSourceRef, startMode)
 
   // Update issue state
   try {
@@ -107,3 +108,4 @@ export async function startWorkOnIssue(
     console.error("Failed to update issue state:", error)
   }
 }
+

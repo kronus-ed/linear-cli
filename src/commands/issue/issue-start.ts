@@ -12,6 +12,8 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { checkStaleWorktrees } from "../../utils/worktree.ts"
+import { getDefaultStartMode } from "../../utils/vcs.ts"
 
 export const startCommand = new Command()
   .name("start")
@@ -33,58 +35,68 @@ export const startCommand = new Command()
     "-b, --branch <branch:string>",
     "Custom branch name to use instead of the issue identifier",
   )
-  .action(async ({ allAssignees, unassigned, fromRef, branch }, issueId) => {
-    try {
-      const teamId = getTeamKey()
-      if (!teamId) {
-        throw new ValidationError("Could not determine team ID")
-      }
-
-      // Validate that conflicting flags are not used together
-      if (allAssignees && unassigned) {
-        throw new ValidationError(
-          "Cannot specify both --all-assignees and --unassigned",
-        )
-      }
-
-      // Only resolve the provided issueId, don't infer from VCS
-      // (start should pick from a list, not continue on current issue)
-      let resolvedId = issueId ? await getIssueIdentifier(issueId) : undefined
-      if (!resolvedId) {
-        const result = await fetchIssuesForState(
-          teamId,
-          ["unstarted"],
-          undefined,
-          unassigned,
-          allAssignees,
-        )
-        const issues = result.issues?.nodes || []
-
-        if (issues.length === 0) {
-          throw new NotFoundError("Unstarted issues", teamId)
+  .option(
+    "-W, --worktree",
+    "Create a git worktree instead of switching branches",
+  )
+  .action(
+    async ({ allAssignees, unassigned, fromRef, branch, worktree }, issueId) => {
+      try {
+        const teamId = getTeamKey()
+        if (!teamId) {
+          throw new ValidationError("Could not determine team ID")
         }
 
-        const answer = await Select.prompt({
-          message: "Select an issue to start:",
-          search: true,
-          searchLabel: "Search issues",
-          options: issues.map((
-            issue: { identifier: string; title: string; priority: number },
-          ) => ({
-            name: getPriorityDisplay(issue.priority) +
-              ` ${issue.identifier}: ${issue.title}`,
-            value: issue.identifier,
-          })),
-        })
+        // Validate that conflicting flags are not used together
+        if (allAssignees && unassigned) {
+          throw new ValidationError(
+            "Cannot specify both --all-assignees and --unassigned",
+          )
+        }
 
-        resolvedId = answer as string
-      }
+        // Only resolve the provided issueId, don't infer from VCS
+        // (start should pick from a list, not continue on current issue)
+        let resolvedId = issueId ? await getIssueIdentifier(issueId) : undefined
+        if (!resolvedId) {
+          const result = await fetchIssuesForState(
+            teamId,
+            ["unstarted"],
+            undefined,
+            unassigned,
+            allAssignees,
+          )
+          const issues = result.issues?.nodes || []
 
-      if (!resolvedId) {
-        throw new ValidationError("No issue ID resolved")
+          if (issues.length === 0) {
+            throw new NotFoundError("Unstarted issues", teamId)
+          }
+
+          const answer = await Select.prompt({
+            message: "Select an issue to start:",
+            search: true,
+            searchLabel: "Search issues",
+            options: issues.map((
+              issue: { identifier: string; title: string; priority: number },
+            ) => ({
+              name: getPriorityDisplay(issue.priority) +
+                ` ${issue.identifier}: ${issue.title}`,
+              value: issue.identifier,
+            })),
+          })
+
+          resolvedId = answer as string
+        }
+
+        if (!resolvedId) {
+          throw new ValidationError("No issue ID resolved")
+        }
+
+        const startMode = worktree ? "worktree" : getDefaultStartMode()
+        await startIssue(resolvedId, teamId, fromRef, branch, startMode)
+        await checkStaleWorktrees()
+      } catch (error) {
+        handleError(error, "Failed to start issue")
       }
-      await startIssue(resolvedId, teamId, fromRef, branch)
-    } catch (error) {
-      handleError(error, "Failed to start issue")
-    }
-  })
+    },
+  )
+

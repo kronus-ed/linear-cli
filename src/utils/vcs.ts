@@ -10,11 +10,20 @@ import {
   prepareJjWorkingState,
   setJjDescription,
 } from "./jj.ts"
+import { createWorktree } from "./worktree.ts"
 
 export type VcsType = "git" | "jj"
+export type GitStartMode = "branch" | "worktree"
 
 export function getVcs(): VcsType {
   return getOption("vcs") || "git"
+}
+
+/**
+ * Returns the configured default git start mode.
+ */
+export function getDefaultStartMode(): GitStartMode {
+  return getOption("start_mode") || "worktree"
 }
 
 /**
@@ -79,17 +88,26 @@ export async function getCurrentIssueFromVcs(): Promise<string | null> {
 }
 
 /**
- * Start work on an issue using the appropriate VCS
+ * Start work on an issue using the appropriate VCS.
+ * For git, startMode controls whether to switch branches or create a worktree.
  */
 export async function startVcsWork(
   issueId: string,
   branchName: string,
   gitSourceRef?: string,
+  startMode?: GitStartMode,
 ): Promise<void> {
   const vcs = getVcs()
+  const mode = startMode ?? getDefaultStartMode()
 
   switch (vcs) {
     case "git": {
+      if (mode === "worktree") {
+        await createWorktree(branchName, gitSourceRef)
+        break
+      }
+
+      // Default "branch" mode — original behaviour
       // Check if branch exists
       if (await gitBranchExists(branchName)) {
         const answer = await Select.prompt({

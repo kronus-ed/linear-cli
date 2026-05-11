@@ -26,6 +26,8 @@ import {
   type WorkflowState,
 } from "../../utils/linear.ts"
 import { startWorkOnIssue } from "../../utils/actions.ts"
+import { checkStaleWorktrees } from "../../utils/worktree.ts"
+import { type GitStartMode, getDefaultStartMode } from "../../utils/vcs.ts"
 import {
   CliError,
   handleError,
@@ -246,7 +248,7 @@ async function promptInteractiveIssueCreation(
   labelIds: string[]
   description?: string
   stateId?: string
-  start: boolean
+  start: false | GitStartMode
   parentId?: string
   projectId?: string | null
 }> {
@@ -419,15 +421,19 @@ async function promptInteractiveIssueCreation(
   }
 
   // Ask about starting work (always show this)
+  const configDefault = getDefaultStartMode()
   const start = await Select.prompt({
     message:
-      "Start working on this issue now? (creates branch and updates status)",
+      "Start working on this issue now? (creates branch/worktree and updates status)",
     options: [
-      { name: "No", value: false },
-      { name: "Yes", value: true },
+      { name: "No", value: "no" },
+      { name: "Switch branch", value: "branch" },
+      { name: "Create worktree", value: "worktree" },
     ],
-    default: false,
-  })
+    default: configDefault,
+  }) as "no" | GitStartMode
+
+  const startResult: false | GitStartMode = start === "no" ? false : start
 
   return {
     title,
@@ -438,7 +444,7 @@ async function promptInteractiveIssueCreation(
     labelIds,
     description: finalDescription,
     stateId,
-    start,
+    start: startResult,
     parentId,
     projectId: parentData?.projectId || null,
   }
@@ -643,9 +649,17 @@ export const createCommand = new Command()
             const teamKey = issue.team.key
             const teamIdForStartWork = await getTeamIdByKey(teamKey)
             if (teamIdForStartWork) {
-              await startWorkOnIssue(issueId, teamIdForStartWork)
+              await startWorkOnIssue(
+                issueId,
+                teamIdForStartWork,
+                undefined,
+                undefined,
+                interactiveData.start,
+              )
             }
           }
+
+          await checkStaleWorktrees()
           return
         } catch (error) {
           handleError(error, "Failed to create issue")
@@ -845,6 +859,8 @@ export const createCommand = new Command()
         if (start) {
           await startWorkOnIssue(issueId, issue.team.key)
         }
+
+        await checkStaleWorktrees()
       } catch (error) {
         spinner?.stop()
         handleError(error, "Failed to create issue")
