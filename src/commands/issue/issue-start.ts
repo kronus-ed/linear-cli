@@ -39,17 +39,16 @@ export const startCommand = new Command()
     "-W, --worktree",
     "Create a git worktree instead of switching branches",
   )
+  .option(
+    "-t, --team <team:string>",
+    "Team key to use if only an issue number is provided, or to list unstarted issues from",
+  )
   .action(
     async (
-      { allAssignees, unassigned, fromRef, branch, worktree },
+      { allAssignees, unassigned, fromRef, branch, worktree, team },
       issueId,
     ) => {
       try {
-        const teamId = getTeamKey()
-        if (!teamId) {
-          throw new ValidationError("Could not determine team ID")
-        }
-
         // Validate that conflicting flags are not used together
         if (allAssignees && unassigned) {
           throw new ValidationError(
@@ -59,10 +58,19 @@ export const startCommand = new Command()
 
         // Only resolve the provided issueId, don't infer from VCS
         // (start should pick from a list, not continue on current issue)
-        let resolvedId = issueId ? await getIssueIdentifier(issueId) : undefined
+        let resolvedId = issueId
+          ? await getIssueIdentifier(issueId, team)
+          : undefined
         if (!resolvedId) {
+          const listTeamKey = team || getTeamKey()
+          if (!listTeamKey) {
+            throw new ValidationError(
+              "Could not determine team ID. Pass --team or configure team_id.",
+            )
+          }
+
           const result = await fetchIssuesForState(
-            teamId,
+            listTeamKey,
             ["unstarted"],
             undefined,
             unassigned,
@@ -71,7 +79,7 @@ export const startCommand = new Command()
           const issues = result.issues?.nodes || []
 
           if (issues.length === 0) {
-            throw new NotFoundError("Unstarted issues", teamId)
+            throw new NotFoundError("Unstarted issues", listTeamKey)
           }
 
           const answer = await Select.prompt({
@@ -94,8 +102,9 @@ export const startCommand = new Command()
           throw new ValidationError("No issue ID resolved")
         }
 
+        const targetTeamKey = resolvedId.split("-")[0]
         const startMode = worktree ? "worktree" : getDefaultStartMode()
-        await startIssue(resolvedId, teamId, fromRef, branch, startMode)
+        await startIssue(resolvedId, targetTeamKey, fromRef, branch, startMode)
         await checkStaleWorktrees()
       } catch (error) {
         handleError(error, "Failed to start issue")

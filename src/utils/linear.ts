@@ -66,6 +66,7 @@ export function getTeamKey(): string | undefined {
  */
 export async function getIssueIdentifier(
   providedId?: string,
+  fallbackTeamKey?: string,
 ): Promise<string | undefined> {
   if (providedId) {
     const normalizedIdentifier = normalizeIssueIdentifier(providedId)
@@ -75,13 +76,13 @@ export async function getIssueIdentifier(
   }
 
   if (providedId && /^[1-9][0-9]*$/.test(providedId)) {
-    const teamId = getTeamKey()
+    const teamId = fallbackTeamKey || getTeamKey()
     if (teamId) {
       return normalizeIssueIdentifier(`${teamId}-${providedId}`)
     }
 
     throw new Error(
-      "an integer id was provided, but no team is set. run `linear configure`",
+      "an integer id was provided, but no team is set. pass --team or run `linear configure`",
     )
   }
 
@@ -1229,6 +1230,87 @@ export async function getTeamIdByKey(
   `)
   const data = await client.request(query, { team })
   return data.teams?.nodes[0]?.id
+}
+
+// deno-lint-ignore no-explicit-any
+function prosemirrorToMarkdown(node: any): string {
+  if (!node) return ""
+  if (typeof node === "string") return node
+
+  if (node.type === "text") {
+    let text = node.text || ""
+    if (node.marks) {
+      for (const mark of node.marks) {
+        if (mark.type === "strong") text = `**${text}**`
+        else if (mark.type === "em") text = `*${text}*`
+        else if (mark.type === "code") text = `\`${text}\``
+      }
+    }
+    return text
+  }
+
+  if (Array.isArray(node.content)) {
+    const children = node.content.map(prosemirrorToMarkdown).join("")
+
+    switch (node.type) {
+      case "doc":
+        return children
+      case "paragraph":
+        return children + "\n\n"
+      case "heading": {
+        const level = node.attrs?.level || 1
+        return `${"#".repeat(level)} ${children}\n\n`
+      }
+      case "bulletList":
+        // deno-lint-ignore no-explicit-any
+        return node.content.map((item: any) =>
+          `- ${prosemirrorToMarkdown(item).trim()}`
+        ).join("\n") + "\n\n"
+      case "orderedList":
+        // deno-lint-ignore no-explicit-any
+        return node.content.map((item: any, i: number) =>
+          `${i + 1}. ${prosemirrorToMarkdown(item).trim()}`
+        ).join("\n") + "\n\n"
+      case "listItem":
+        return children
+      case "codeBlock":
+        return `\`\`\`\n${children}\n\`\`\`\n\n`
+      case "blockquote":
+        return `> ${children}\n\n`
+      default:
+        return children
+    }
+  }
+
+  return ""
+}
+
+export async function getDefaultIssueTemplateDescription(
+  teamId: string,
+): Promise<string | undefined> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetDefaultIssueTemplate($teamId: String!) {
+      team(id: $teamId) {
+        defaultTemplateForMembers {
+          templateData
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { teamId })
+  const templateData = data.team?.defaultTemplateForMembers?.templateData
+  if (templateData == null) return undefined
+
+  // templateData is a JSON object; the descriptionData field contains the ProseMirror document
+  const parsed = typeof templateData === "string"
+    ? JSON.parse(templateData)
+    : templateData
+
+  if (!parsed?.descriptionData) return undefined
+
+  const description = prosemirrorToMarkdown(parsed.descriptionData)
+  return description.trim().length > 0 ? description.trim() : undefined
 }
 
 export async function searchTeamsByKeySubstring(

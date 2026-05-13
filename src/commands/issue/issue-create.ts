@@ -2,12 +2,14 @@ import { Command } from "@cliffy/command"
 import { Checkbox, Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { getOption } from "../../config.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
 import { getPriorityDisplay } from "../../utils/display.ts"
 import {
   fetchParentIssueData,
   getAllTeams,
   getCycleIdByNameOrNumber,
+  getDefaultIssueTemplateDescription,
   getIssueId,
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
@@ -254,6 +256,9 @@ async function promptInteractiveIssueCreation(
 }> {
   // Start user settings and team resolution in background while asking for title
   const userSettingsPromise = (async () => {
+    const configValue = getOption("auto_assign_to_self")
+    if (configValue !== undefined) return configValue
+
     const client = getGraphQLClient()
     const userSettingsQuery = gql(`
       query GetUserSettings {
@@ -334,6 +339,7 @@ async function promptInteractiveIssueCreation(
   // Preload team-scoped data (do not await yet)
   const workflowStatesPromise = getWorkflowStates(teamKey)
   const labelsPromise = getLabelsForTeam(teamKey)
+  const templatePromise = getDefaultIssueTemplateDescription(teamId)
 
   // Description prompt
   const editorName = await getEditor()
@@ -350,7 +356,8 @@ async function promptInteractiveIssueCreation(
   let finalDescription: string | undefined
   if (description === "e" && editorDisplayName) {
     console.log(`Opening ${editorDisplayName}...`)
-    finalDescription = await openEditor()
+    const templateDescription = await templatePromise
+    finalDescription = await openEditor(templateDescription)
     if (finalDescription && finalDescription.length > 0) {
       console.log(
         `Description entered (${finalDescription.length} characters)`,

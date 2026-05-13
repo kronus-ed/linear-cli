@@ -20,7 +20,9 @@ export async function getEditor(): Promise<string | null> {
   return null
 }
 
-export async function openEditor(): Promise<string | undefined> {
+export async function openEditor(
+  initialContent?: string,
+): Promise<string | undefined> {
   const editor = await getEditor()
   if (!editor) {
     console.error(
@@ -33,6 +35,11 @@ export async function openEditor(): Promise<string | undefined> {
   const tempFile = await Deno.makeTempFile({ suffix: ".md" })
 
   try {
+    // Pre-fill with initial content if provided
+    if (initialContent != null) {
+      await Deno.writeTextFile(tempFile, initialContent)
+    }
+
     // Open the editor
     const process = new Deno.Command(editor, {
       args: [tempFile],

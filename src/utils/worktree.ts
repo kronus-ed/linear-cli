@@ -43,6 +43,8 @@ export async function createWorktree(
   const worktreePath = join(gitRoot, WORKTREES_DIR, branchName)
   const relativeWorktreePath = join(WORKTREES_DIR, branchName)
 
+  let finalWorktreePath: string
+
   // Check if branch already exists
   const branchCheck = new Deno.Command("git", {
     args: ["rev-parse", "--verify", branchName],
@@ -58,80 +60,111 @@ export async function createWorktree(
         ? existingWorktree.slice(gitRoot.length + 1)
         : existingWorktree
       console.log(`✓ Open ${relExisting} to work on this issue`)
-      return existingWorktree
-    }
+      finalWorktreePath = existingWorktree
+    } else {
+      const answer = await Select.prompt({
+        message:
+          `Branch ${branchName} already exists. What would you like to do?`,
+        options: [
+          { name: "Create worktree with existing branch", value: "existing" },
+          {
+            name: "Create worktree with new suffixed branch",
+            value: "suffix",
+          },
+        ],
+      })
 
-    const answer = await Select.prompt({
-      message:
-        `Branch ${branchName} already exists. What would you like to do?`,
+      if (answer === "existing") {
+        // Create worktree using existing branch (no -b flag)
+        const process = new Deno.Command("git", {
+          args: ["worktree", "add", worktreePath, branchName],
+          stderr: "piped",
+        })
+        const { success, stderr } = await process.output()
+        if (!success) {
+          const errorMsg = new TextDecoder().decode(stderr).trim()
+          throw new CliError(
+            `Failed to create worktree for existing branch '${branchName}': ${errorMsg}`,
+          )
+        }
+        console.log(`✓ Open ${relativeWorktreePath} to work on this issue`)
+        finalWorktreePath = worktreePath
+      } else {
+        // Find next available suffix
+        let suffix = 1
+        let newBranch = `${branchName}-${suffix}`
+        while (await branchExists(newBranch)) {
+          suffix++
+          newBranch = `${branchName}-${suffix}`
+        }
+        const suffixedPath = join(gitRoot, WORKTREES_DIR, newBranch)
+        const relSuffixedPath = join(WORKTREES_DIR, newBranch)
+
+        const args = ["worktree", "add", "-b", newBranch, suffixedPath]
+        if (sourceRef) args.push(sourceRef)
+
+        const process = new Deno.Command("git", {
+          args,
+          stderr: "piped",
+        })
+        const { success, stderr } = await process.output()
+        if (!success) {
+          const errorMsg = new TextDecoder().decode(stderr).trim()
+          throw new CliError(
+            `Failed to create worktree '${suffixedPath}': ${errorMsg}`,
+          )
+        }
+        console.log(`✓ Open ${relSuffixedPath} to work on this issue`)
+        finalWorktreePath = suffixedPath
+      }
+    }
+  } else {
+    // Branch doesn't exist — create worktree with new branch
+    const args = ["worktree", "add", "-b", branchName, worktreePath]
+    if (sourceRef) args.push(sourceRef)
+
+    const process = new Deno.Command("git", {
+      args,
+      stderr: "piped",
+    })
+    const { success, stderr } = await process.output()
+    if (!success) {
+      const errorMsg = new TextDecoder().decode(stderr).trim()
+      throw new CliError(
+        `Failed to create worktree '${worktreePath}': ${errorMsg}`,
+      )
+    }
+    console.log(`✓ Open ${relativeWorktreePath} to work on this issue`)
+    finalWorktreePath = worktreePath
+  }
+
+  // Offer to open the worktree in VSCode
+  if (Deno.stdout.isTerminal()) {
+    const openInVscode = await Select.prompt({
+      message: "Open worktree in VSCode?",
       options: [
-        { name: "Create worktree with existing branch", value: "existing" },
-        { name: "Create worktree with new suffixed branch", value: "suffix" },
+        { name: "No", value: "no" },
+        { name: "Yes", value: "yes" },
       ],
+      default: "no",
     })
 
-    if (answer === "existing") {
-      // Create worktree using existing branch (no -b flag)
-      const process = new Deno.Command("git", {
-        args: ["worktree", "add", worktreePath, branchName],
+    if (openInVscode === "yes") {
+      const process = new Deno.Command("code", {
+        args: [finalWorktreePath],
         stderr: "piped",
       })
       const { success, stderr } = await process.output()
       if (!success) {
         const errorMsg = new TextDecoder().decode(stderr).trim()
-        throw new CliError(
-          `Failed to create worktree for existing branch '${branchName}': ${errorMsg}`,
-        )
+        console.error(`Failed to open VSCode: ${errorMsg}`)
+      } else {
+        console.log(`✓ Opened worktree in VSCode`)
       }
-      console.log(`✓ Open ${relativeWorktreePath} to work on this issue`)
-      return worktreePath
-    } else {
-      // Find next available suffix
-      let suffix = 1
-      let newBranch = `${branchName}-${suffix}`
-      while (await branchExists(newBranch)) {
-        suffix++
-        newBranch = `${branchName}-${suffix}`
-      }
-      const suffixedPath = join(gitRoot, WORKTREES_DIR, newBranch)
-      const relSuffixedPath = join(WORKTREES_DIR, newBranch)
-
-      const args = ["worktree", "add", "-b", newBranch, suffixedPath]
-      if (sourceRef) args.push(sourceRef)
-
-      const process = new Deno.Command("git", {
-        args,
-        stderr: "piped",
-      })
-      const { success, stderr } = await process.output()
-      if (!success) {
-        const errorMsg = new TextDecoder().decode(stderr).trim()
-        throw new CliError(
-          `Failed to create worktree '${suffixedPath}': ${errorMsg}`,
-        )
-      }
-      console.log(`✓ Open ${relSuffixedPath} to work on this issue`)
-      return suffixedPath
     }
   }
 
-  // Branch doesn't exist — create worktree with new branch
-  const args = ["worktree", "add", "-b", branchName, worktreePath]
-  if (sourceRef) args.push(sourceRef)
-
-  const process = new Deno.Command("git", {
-    args,
-    stderr: "piped",
-  })
-  const { success, stderr } = await process.output()
-  if (!success) {
-    const errorMsg = new TextDecoder().decode(stderr).trim()
-    throw new CliError(
-      `Failed to create worktree '${worktreePath}': ${errorMsg}`,
-    )
-  }
-  console.log(`✓ Open ${relativeWorktreePath} to work on this issue`)
-  return worktreePath
+  return finalWorktreePath
 }
 
 async function branchExists(branch: string): Promise<boolean> {
