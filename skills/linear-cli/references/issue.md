@@ -174,13 +174,14 @@ Description:
 
 Options:
 
-  -h, --help                      - Show this help.                                            
-  --workspace          <slug>     - Target workspace (uses credentials)                        
-  -A, --all-assignees             - Show issues for all assignees                              
-  -U, --unassigned                - Show only unassigned issues                                
-  -f, --from-ref       <fromRef>  - Git ref to create new branch from                          
-  -b, --branch         <branch>   - Custom branch name to use instead of the issue identifier  
-  -W, --worktree                  - Create a git worktree instead of switching branches
+  -h, --help                      - Show this help.                                                                        
+  --workspace          <slug>     - Target workspace (uses credentials)                                                    
+  -A, --all-assignees             - Show issues for all assignees                                                          
+  -U, --unassigned                - Show only unassigned issues                                                            
+  -f, --from-ref       <fromRef>  - Git ref to create new branch from                                                      
+  -b, --branch         <branch>   - Custom branch name to use instead of the issue identifier                              
+  -W, --worktree                  - Create a git worktree instead of switching branches                                    
+  -t, --team           <team>     - Team key to use if only an issue number is provided, or to list unstarted issues from
 ```
 
 ### view
