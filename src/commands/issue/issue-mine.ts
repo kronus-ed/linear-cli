@@ -16,11 +16,12 @@ import {
   getProjectOptionsByName,
   getTeamIdByKey,
   getTeamKey,
+  getViewerTeams,
   selectOption,
 } from "../../utils/linear.ts"
 import { openTeamAssigneeView } from "../../utils/actions.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
-import { header, muted } from "../../utils/styling.ts"
+import { header, highlight, muted } from "../../utils/styling.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
   handleError,
@@ -47,7 +48,7 @@ export const mineCommand = new Command()
     "-s, --state <state:state>",
     "Filter by issue state (can be repeated for multiple states)",
     {
-      default: ["unstarted"],
+      default: ["backlog", "started", "unstarted"],
       collect: true,
     },
   )
@@ -175,22 +176,36 @@ export const mineCommand = new Command()
         }
 
         const sort = sortFlag ||
-          getOption("issue_sort") as "manual" | "priority" | undefined
-        if (!sort) {
-          throw new ValidationError(
-            "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
-          )
-        }
+          getOption("issue_sort") as "manual" | "priority" | undefined || "manual"
         if (!SortType.values().includes(sort)) {
           throw new ValidationError(
             `Sort must be one of: ${SortType.values().join(", ")}`,
           )
         }
-        const teamKey = team || getTeamKey()
-        if (!teamKey) {
-          throw new ValidationError(
-            "Could not determine team key from directory name or team flag",
-          )
+
+        let teamsToFetch: Array<{ id: string; key: string; name: string }> = []
+        if (team) {
+          const teamId = await getTeamIdByKey(team)
+          if (!teamId) {
+            throw new NotFoundError("Team", team)
+          }
+          teamsToFetch = [{ id: teamId, key: team.toUpperCase(), name: team }]
+        } else {
+          teamsToFetch = await getViewerTeams()
+          if (teamsToFetch.length === 0) {
+            const fallback = getTeamKey()
+            if (fallback) {
+              const teamId = await getTeamIdByKey(fallback)
+              if (teamId) {
+                teamsToFetch = [{ id: teamId, key: fallback, name: fallback }]
+              }
+            }
+          }
+          if (teamsToFetch.length === 0) {
+            throw new ValidationError(
+              "Could not determine any teams for the user. Please specify --team or set a default team configuration.",
+            )
+          }
         }
 
         if (project != null && projectLabel != null) {
@@ -220,15 +235,6 @@ export const mineCommand = new Command()
             }
             projectId = await selectOption("Project", project, projectOptions)
           }
-        }
-
-        let cycleId: string | undefined
-        if (cycle != null) {
-          const teamId = await getTeamIdByKey(teamKey)
-          if (!teamId) {
-            throw new NotFoundError("Team", teamKey)
-          }
-          cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
         }
 
         let milestoneId: string | undefined
@@ -263,26 +269,38 @@ export const mineCommand = new Command()
         const spinner = showSpinner ? new Spinner() : null
         spinner?.start()
 
-        const result = await fetchIssuesForState(
-          teamKey,
-          allStates ? undefined : stateArray,
-          undefined, // assignee — always self
-          false, // unassigned
-          false, // allAssignees
-          limit === 0 ? undefined : limit,
-          projectId,
-          sort,
-          cycleId,
-          milestoneId,
-          projectLabel,
-          labelNames,
-          createdAfter,
-          updatedAfter,
-        )
+        const fetchPromises = teamsToFetch.map(async (t) => {
+          let teamCycleId: string | undefined
+          if (cycle != null) {
+            teamCycleId = await getCycleIdByNameOrNumber(cycle, t.id)
+          }
+          const result = await fetchIssuesForState(
+            t.key,
+            allStates ? undefined : stateArray,
+            undefined, // assignee — always self
+            false, // unassigned
+            false, // allAssignees
+            limit === 0 ? undefined : limit,
+            projectId,
+            sort,
+            teamCycleId,
+            milestoneId,
+            projectLabel,
+            labelNames,
+            createdAfter,
+            updatedAfter,
+          )
+          return {
+            team: t,
+            issues: result.issues?.nodes || [],
+          }
+        })
+        const fetchedResults = await Promise.all(fetchPromises)
         spinner?.stop()
-        const issues = result.issues?.nodes || []
 
-        if (issues.length === 0) {
+        const allIssues = fetchedResults.flatMap((r) => r.issues)
+
+        if (allIssues.length === 0) {
           console.log("No issues found.")
           return
         }
@@ -293,13 +311,13 @@ export const mineCommand = new Command()
         const PRIORITY_WIDTH = 3
         const ID_WIDTH = Math.max(
           2, // minimum width for "ID" header
-          ...issues.map((issue) => issue.identifier.length),
+          ...allIssues.map((issue) => issue.identifier.length),
         )
         const LABEL_WIDTH = Math.min(
           25, // maximum width for labels column
           Math.max(
             6, // minimum width for "LABELS" header
-            ...issues.map((issue) =>
+            ...allIssues.map((issue) =>
               unicodeWidth(issue.labels.nodes.map((l) => l.name).join(", "))
             ),
           ),
@@ -309,14 +327,14 @@ export const mineCommand = new Command()
           20, // maximum width for state
           Math.max(
             5, // minimum width for "STATE" header
-            ...issues.map((issue) => unicodeWidth(issue.state.name)),
+            ...allIssues.map((issue) => unicodeWidth(issue.state.name)),
           ),
         )
         const SPACE_WIDTH = 4
         const updatedHeader = "UPDATED"
         const UPDATED_WIDTH = Math.max(
           unicodeWidth(updatedHeader),
-          ...issues.map((issue) =>
+          ...allIssues.map((issue) =>
             unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))
           ),
         )
@@ -331,86 +349,95 @@ export const mineCommand = new Command()
           estimate: number | null | undefined
         }
 
-        const tableData: Array<TableRow> = issues.map((issue) => {
-          let labels: string
-          if (issue.labels.nodes.length === 0) {
-            labels = " ".repeat(LABEL_WIDTH)
-          } else {
-            const coloredLabels: string[] = []
-            let currentWidth = 0
+        const tableDataMap = new Map<string, Array<TableRow>>()
 
-            for (let i = 0; i < issue.labels.nodes.length; i++) {
-              const label = issue.labels.nodes[i]
-              const coloredLabel = rgb24(
-                label.name,
-                parseInt(label.color.replace("#", ""), 16),
-              )
-              const separator = i > 0 ? ", " : ""
-              const testText = separator + label.name
+        for (const { team: t, issues } of fetchedResults) {
+          if (issues.length === 0) continue
 
-              if (currentWidth + unicodeWidth(testText) > LABEL_WIDTH) {
-                const remainingWidth = LABEL_WIDTH - currentWidth
-                if (remainingWidth >= 4) { // Need at least 4 chars for "..."
-                  const truncatedName = truncateText(
-                    label.name,
-                    remainingWidth - (separator.length),
-                  )
-                  coloredLabels.push(
-                    separator +
-                      rgb24(
-                        truncatedName,
-                        parseInt(label.color.replace("#", ""), 16),
-                      ),
-                  )
+          const teamTableData: Array<TableRow> = issues.map((issue) => {
+            let labels: string
+            if (issue.labels.nodes.length === 0) {
+              labels = " ".repeat(LABEL_WIDTH)
+            } else {
+              const coloredLabels: string[] = []
+              let currentWidth = 0
+
+              for (let i = 0; i < issue.labels.nodes.length; i++) {
+                const label = issue.labels.nodes[i]
+                const coloredLabel = rgb24(
+                  label.name,
+                  parseInt(label.color.replace("#", ""), 16),
+                )
+                const separator = i > 0 ? ", " : ""
+                const testText = separator + label.name
+
+                if (currentWidth + unicodeWidth(testText) > LABEL_WIDTH) {
+                  const remainingWidth = LABEL_WIDTH - currentWidth
+                  if (remainingWidth >= 4) { // Need at least 4 chars for "..."
+                    const truncatedName = truncateText(
+                      label.name,
+                      remainingWidth - (separator.length),
+                    )
+                    coloredLabels.push(
+                      separator +
+                        rgb24(
+                          truncatedName,
+                          parseInt(label.color.replace("#", ""), 16),
+                        ),
+                    )
+                  }
+                  break
                 }
-                break
+
+                coloredLabels.push(separator + coloredLabel)
+                currentWidth += unicodeWidth(testText)
               }
 
-              coloredLabels.push(separator + coloredLabel)
-              currentWidth += unicodeWidth(testText)
+              labels = coloredLabels.join("")
+              const ansiRegex = new RegExp("\u001B\\[[0-9;]*m", "g")
+              const actualLabelsWidth = unicodeWidth(
+                coloredLabels.join("").replace(ansiRegex, ""),
+              )
+              const remainingSpace = Math.max(0, LABEL_WIDTH - actualLabelsWidth)
+              labels += " ".repeat(remainingSpace)
             }
+            const updatedAt = new Date(issue.updatedAt)
+            const timeAgo = getTimeAgo(updatedAt)
 
-            labels = coloredLabels.join("")
-            const ansiRegex = new RegExp("\u001B\\[[0-9;]*m", "g")
-            const actualLabelsWidth = unicodeWidth(
-              coloredLabels.join("").replace(ansiRegex, ""),
+            const priorityStr = getPriorityDisplay(issue.priority)
+
+            const stateName = truncateText(issue.state.name, STATE_WIDTH)
+            const stateColored = rgb24(
+              stateName,
+              parseInt(issue.state.color.replace("#", ""), 16),
             )
-            const remainingSpace = Math.max(0, LABEL_WIDTH - actualLabelsWidth)
-            labels += " ".repeat(remainingSpace)
-          }
-          const updatedAt = new Date(issue.updatedAt)
-          const timeAgo = getTimeAgo(updatedAt)
+            const stateRemainingSpace = Math.max(
+              0,
+              STATE_WIDTH - unicodeWidth(stateName),
+            )
+            const statePadded = stateColored + " ".repeat(stateRemainingSpace)
 
-          const priorityStr = getPriorityDisplay(issue.priority)
+            return {
+              priorityStr,
+              identifier: issue.identifier,
+              title: issue.title,
+              labels,
+              state: statePadded,
+              timeAgo,
+              estimate: issue.estimate,
+            }
+          })
 
-          const stateName = truncateText(issue.state.name, STATE_WIDTH)
-          const stateColored = rgb24(
-            stateName,
-            parseInt(issue.state.color.replace("#", ""), 16),
-          )
-          const stateRemainingSpace = Math.max(
-            0,
-            STATE_WIDTH - unicodeWidth(stateName),
-          )
-          const statePadded = stateColored + " ".repeat(stateRemainingSpace)
+          tableDataMap.set(t.key, teamTableData)
+        }
 
-          return {
-            priorityStr,
-            identifier: issue.identifier,
-            title: issue.title,
-            labels,
-            state: statePadded,
-            timeAgo,
-            estimate: issue.estimate,
-          }
-        })
-
+        const allTableRows = Array.from(tableDataMap.values()).flat()
+        const maxTitleWidth = Math.max(
+          ...allTableRows.map((row) => unicodeWidth(row.title)),
+        )
         const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
           LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH
         const PADDING = 1
-        const maxTitleWidth = Math.max(
-          ...tableData.map((row) => unicodeWidth(row.title)),
-        )
         const availableWidth = Math.max(columns - PADDING - fixed, 0)
         const titleWidth = Math.min(maxTitleWidth, availableWidth) // use smaller of max title width or available space
         const headerCells = [
@@ -429,27 +456,42 @@ export const mineCommand = new Command()
 
         outputLines.push(formattedHeaderLine)
 
-        for (const row of tableData) {
-          const {
-            priorityStr,
-            identifier,
-            title,
-            labels,
-            state,
-            timeAgo,
-            estimate,
-          } = row
-          const truncTitle = padDisplay(
-            truncateText(title, titleWidth),
-            titleWidth,
-          )
+        let firstSection = true
+        const showTeamHeaders = teamsToFetch.length > 1
+        for (const { team: t } of fetchedResults) {
+          const teamRows = tableDataMap.get(t.key)
+          if (!teamRows || teamRows.length === 0) continue
 
-          const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
-            padDisplay(identifier, ID_WIDTH)
-          } ${truncTitle} ${labels} ${
-            padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
-          } ${state} ${muted(padDisplay(timeAgo, UPDATED_WIDTH))}`
-          outputLines.push(issueLine)
+          if (showTeamHeaders) {
+            if (!firstSection) {
+              outputLines.push("")
+            }
+            outputLines.push(highlight(`● ${t.name} (${t.key})`))
+          }
+          firstSection = false
+
+          for (const row of teamRows) {
+            const {
+              priorityStr,
+              identifier,
+              title,
+              labels,
+              state,
+              timeAgo,
+              estimate,
+            } = row
+            const truncTitle = padDisplay(
+              truncateText(title, titleWidth),
+              titleWidth,
+            )
+
+            const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
+              padDisplay(identifier, ID_WIDTH)
+            } ${truncTitle} ${labels} ${
+              padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
+            } ${state} ${muted(padDisplay(timeAgo, UPDATED_WIDTH))}`
+            outputLines.push(issueLine)
+          }
         }
 
         if (shouldUsePager(outputLines, usePager)) {

@@ -110,3 +110,134 @@ Deno.test("Issue Mine Command - Filter By Label", async () => {
     await cleanup()
   }
 })
+
+Deno.test("Issue Mine Command - Grouped By Team (Default)", async () => {
+  const fixedNow = new Date("2026-03-30T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetViewerTeams",
+      response: {
+        data: {
+          viewer: {
+            teams: {
+              nodes: [
+                { id: "team-hrdw-id", key: "HRDW", name: "Kronus Hardware" },
+                { id: "team-sftw-id", key: "SFTW", name: "Kronus Software" },
+              ],
+            },
+          },
+        },
+      },
+    },
+    {
+      queryName: "GetIssuesForState",
+      variables: {
+        filter: {
+          team: { key: { eq: "HRDW" } },
+          assignee: { isMe: { eq: true } },
+          state: { type: { in: ["backlog", "started", "unstarted"] } },
+        },
+      },
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-hrdw-1",
+                identifier: "HRDW-10",
+                title: "Fix hardware bug",
+                priority: 2,
+                estimate: 5,
+                assignee: { initials: "EH" },
+                state: {
+                  id: "state-todo",
+                  name: "Todo",
+                  color: "#e2e2e2",
+                },
+                labels: {
+                  nodes: [],
+                },
+                updatedAt: "2026-03-28T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+    {
+      queryName: "GetIssuesForState",
+      variables: {
+        filter: {
+          team: { key: { eq: "SFTW" } },
+          assignee: { isMe: { eq: true } },
+          state: { type: { in: ["backlog", "started", "unstarted"] } },
+        },
+      },
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-sftw-1",
+                identifier: "SFTW-20",
+                title: "Fix software bug",
+                priority: 1,
+                estimate: 2,
+                assignee: { initials: "EH" },
+                state: {
+                  id: "state-todo",
+                  name: "Todo",
+                  color: "#e2e2e2",
+                },
+                labels: {
+                  nodes: [],
+                },
+                updatedAt: "2026-03-29T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { LINEAR_ISSUE_SORT: "priority", NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await mineCommand.parse([])
+
+    assertEquals(
+      logs.join("\n") + "\n",
+      "◌   ID      TITLE            LABELS E STATE UPDATED   \n" +
+        "● Kronus Hardware (HRDW)\n" +
+        "▄▆█ HRDW-10 Fix hardware bug        5 Todo  2 days ago\n" +
+        "\n" +
+        "● Kronus Software (SFTW)\n" +
+        "⚠⚠⚠ SFTW-20 Fix software bug        2 Todo  1 day ago \n",
+    )
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})

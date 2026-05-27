@@ -1500,6 +1500,28 @@ export async function getAllTeams(): Promise<
   )
 }
 
+export async function getViewerTeams(): Promise<
+  Array<{ id: string; key: string; name: string }>
+> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetViewerTeams {
+      viewer {
+        teams {
+          nodes {
+            id
+            key
+            name
+          }
+        }
+      }
+    }
+  `)
+  const result = await client.request(query, {})
+  return result.viewer?.teams?.nodes || []
+}
+
+
 export async function getLabelsForTeam(
   teamKey: string,
 ): Promise<Array<{ id: string; name: string; color: string }>> {
