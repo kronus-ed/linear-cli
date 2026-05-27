@@ -1521,7 +1521,6 @@ export async function getViewerTeams(): Promise<
   return result.viewer?.teams?.nodes || []
 }
 
-
 export async function getLabelsForTeam(
   teamKey: string,
 ): Promise<Array<{ id: string; name: string; color: string }>> {

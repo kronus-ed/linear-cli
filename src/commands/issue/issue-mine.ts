@@ -176,7 +176,8 @@ export const mineCommand = new Command()
         }
 
         const sort = sortFlag ||
-          getOption("issue_sort") as "manual" | "priority" | undefined || "manual"
+          getOption("issue_sort") as "manual" | "priority" | undefined ||
+          "manual"
         if (!SortType.values().includes(sort)) {
           throw new ValidationError(
             `Sort must be one of: ${SortType.values().join(", ")}`,
@@ -398,7 +399,10 @@ export const mineCommand = new Command()
               const actualLabelsWidth = unicodeWidth(
                 coloredLabels.join("").replace(ansiRegex, ""),
               )
-              const remainingSpace = Math.max(0, LABEL_WIDTH - actualLabelsWidth)
+              const remainingSpace = Math.max(
+                0,
+                LABEL_WIDTH - actualLabelsWidth,
+              )
               labels += " ".repeat(remainingSpace)
             }
             const updatedAt = new Date(issue.updatedAt)

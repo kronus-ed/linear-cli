@@ -33,11 +33,11 @@ stdout:
 **Lead:** Jane Lead
 **Start Date:** 2024-01-15
 **Target Date:** 2024-04-30
-**Started At:** 16/01/2024
+**Started At:** 1/16/2024
 **Teams:** Backend Team (BACKEND), Security Team (SECURITY)
 
-**Created:** 10/01/2024
-**Updated:** 26/01/2024
+**Created:** 1/10/2024
+**Updated:** 1/25/2024
 
 ## Description
 
@@ -58,7 +58,7 @@ Complete overhaul of the authentication system to improve security and user expe
 ## Latest Update
 
 **By:** Jane Lead
-**When:** 23/01/2024
+**When:** 1/22/2024
 **Health:** onTrack
 
 Great progress this week! The OAuth implementation is nearly complete and we're on track for our Q1 delivery. The team has been collaborating well across backend and security concerns.
@@ -94,8 +94,8 @@ stdout:
 **Status:** Backlog
 **Priority:** None
 
-**Created:** 20/01/2024
-**Updated:** 20/01/2024
+**Created:** 1/20/2024
+**Updated:** 1/20/2024
 "
 stderr:
 ""

@@ -72,27 +72,27 @@ Options:
 
   -h, --help                       - Show this help.                                                                                                 
   --workspace      <slug>          - Target workspace (uses credentials)                                                                             
-  -s, --state      <state>         - Filter by issue state (can be repeated for       (Default: [ "unstarted" ], Values: "triage", "backlog",        
-                                     multiple states)                                 "unstarted", "started", "completed", "canceled")               
+  -s, --state      <state>         - Filter by issue state (can be repeated for  (Default: [ "backlog", "started", "unstarted" ], Values: "triage",  
+                                     multiple states)                            "backlog", "unstarted", "started", "completed", "canceled")         
   --all-states                     - Show issues from all states                                                                                     
-  --sort           <sort>          - Sort order (can also be set via                  (Values: "manual", "priority")                                 
+  --sort           <sort>          - Sort order (can also be set via             (Values: "manual", "priority")                                      
                                      LINEAR_ISSUE_SORT)                                                                                              
-  --team           <team>          - Team to list issues for (if not your default                                                                    
-                                     team)                                                                                                           
+  --team           <team>          - Team to list issues for (if not your                                                                            
+                                     default team)                                                                                                   
   --project        <project>       - Filter by project name                                                                                          
-  --project-label  <projectLabel>  - Filter by project label name (shows issues from                                                                 
-                                     all projects with this label)                                                                                   
+  --project-label  <projectLabel>  - Filter by project label name (shows issues                                                                      
+                                     from all projects with this label)                                                                              
   --cycle          <cycle>         - Filter by cycle name, number, or 'active'                                                                       
   --milestone      <milestone>     - Filter by project milestone name (requires                                                                      
                                      --project)                                                                                                      
   -l, --label      <label>         - Filter by label name (can be repeated for                                                                       
                                      multiple labels)                                                                                                
-  --limit          <limit>         - Maximum number of issues to fetch (default: 50,  (Default: 50)                                                  
-                                     use 0 for unlimited)                                                                                            
-  --created-after  <date>          - Filter issues created after this date (ISO 8601                                                                 
-                                     or YYYY-MM-DD)                                                                                                  
-  --updated-after  <date>          - Filter issues updated after this date (ISO 8601                                                                 
-                                     or YYYY-MM-DD)                                                                                                  
+  --limit          <limit>         - Maximum number of issues to fetch           (Default: 50)                                                       
+                                     (default: 50, use 0 for unlimited)                                                                              
+  --created-after  <date>          - Filter issues created after this date (ISO                                                                      
+                                     8601 or YYYY-MM-DD)                                                                                             
+  --updated-after  <date>          - Filter issues updated after this date (ISO                                                                      
+                                     8601 or YYYY-MM-DD)                                                                                             
   -w, --web                        - Open in web browser                                                                                             
   -a, --app                        - Open in Linear.app                                                                                              
   --no-pager                       - Disable automatic paging for long output

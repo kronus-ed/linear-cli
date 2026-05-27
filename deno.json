@@ -15,6 +15,7 @@
     "snapshot": "deno test --allow-all -- --update",
     "lefthook-install": "deno run --allow-run --allow-read --allow-write --allow-env npm:lefthook install",
     "validate": "deno task check && deno fmt && deno lint",
+    "ci": "./scripts/ci.sh",
     "generate-skill-docs": "deno run --allow-run --allow-read --allow-write skills/linear-cli/scripts/generate-docs.ts"
   },
   "imports": {

@@ -43,3 +43,16 @@
 - use `deno task test` instead of `deno test`, use `deno task snapshot` to update snapshots
 - use the NO_COLOR variable for snapshot tests so they don't include ansi escape codes
 - new feature should get tests
+
+## locale / determinism
+
+- never use locale-dependent APIs like `toLocaleDateString()`, `toLocaleString()`, or `toLocaleTimeString()` without an explicit locale argument — the output varies by system locale and will silently break snapshot tests in CI
+- always pass `"en-US"` (or another fixed locale) so output is deterministic across all environments
+- always pass `{ timeZone: "UTC" }` as well — without it, the same UTC timestamp renders as different calendar dates in different timezones (e.g. `2024-01-15T20:00:00Z` → Jan 15 in UTC but Jan 16 in AEST)
+- this applies anywhere user-visible dates are formatted — utilities, commands, and tests
+
+## ci / verification
+
+- before declaring a task complete, always verify that the CI check steps pass locally.
+- run `./scripts/ci.sh` to run the exact same typecheck, formatting, linting, unit tests, and skill-docs checks that are run in the GitHub Actions CI workflow.
+- if you modify CLI options or help descriptions, you MUST run `deno task generate-skill-docs` to update the skill documentation before verifying CI.

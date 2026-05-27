@@ -30,8 +30,8 @@ stdout:
 **Creator:** Alice
 **Issue:** ENG-412 - Fix auth token refresh
 
-**Created:** 01/01/2020
-**Started:** 01/01/2020
+**Created:** 1/1/2020
+**Started:** 1/1/2020
 
 ## Summary
 
@@ -39,9 +39,9 @@ Investigating auth token refresh bug in the middleware layer
 
 ## Activities
 
-- **thought** (01/01/2020) - Looking at the auth middleware code
-- **action** (01/01/2020) - read_file: src/middleware/auth.ts
-- **response** (01/01/2020) - The token refresh is failing because the expiry check uses UTC
+- **thought** (1/1/2020) - Looking at the auth middleware code
+- **action** (1/1/2020) - read_file: src/middleware/auth.ts
+- **response** (1/1/2020) - The token refresh is failing because the expiry check uses UTC
 "
 stderr:
 ""
@@ -58,9 +58,9 @@ stdout:
 **Creator:** Bob
 **Issue:** ENG-398 - Add dark mode toggle
 
-**Created:** 01/01/2020
-**Started:** 01/01/2020
-**Ended:** 01/01/2020
+**Created:** 1/1/2020
+**Started:** 1/1/2020
+**Ended:** 1/1/2020
 
 **External Link:** https://github.com/org/repo/pull/42
 

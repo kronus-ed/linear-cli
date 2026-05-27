@@ -71,19 +71,19 @@ Users are experiencing issues logging in when their session expires.
 
 ## Comments
 
-- **@John Doe** - *15/01/2024* [thread: comment-1]
+- **@John Doe** - *1/15/2024* [thread: comment-1]
 
   I've reproduced this issue on staging. The session timeout seems to be too aggressive.
 
-  - **@Jane Smith** - *16/01/2024*
+  - **@Jane Smith** - *1/15/2024*
 
     Working on a fix. Will increase the session timeout and add proper error handling.
 
-  - **@Alice Developer** - *16/01/2024*
+  - **@Alice Developer** - *1/15/2024*
 
     Sounds good! Also, we should add better error messaging for expired sessions.
 
-- **@Bob Senior** - *16/01/2024* [thread: comment-4]
+- **@Bob Senior** - *1/15/2024* [thread: comment-4]
 
   Should we also consider implementing automatic session refresh?
 
@@ -333,11 +333,11 @@ Check how issue view handles resolved comment threads.
 
 ## Comments
 
-- **@John Doe** - *15/01/2024* [thread: comment-root-open]
+- **@John Doe** - *1/15/2024* [thread: comment-root-open]
 
   Open thread root comment.
 
-  - **@Jane Smith** - *15/01/2024*
+  - **@Jane Smith** - *1/15/2024*
 
     Reply on the open thread.
 
@@ -359,15 +359,15 @@ Check how issue view handles resolved comment threads.
 
 ## Comments
 
-- **@John Doe** - *15/01/2024* [thread: comment-root-open]
+- **@John Doe** - *1/15/2024* [thread: comment-root-open]
 
   Open thread root comment.
 
-  - **@Jane Smith** - *15/01/2024*
+  - **@Jane Smith** - *1/15/2024*
 
     Reply on the open thread.
 
-- **@Alice Developer** - *15/01/2024* [thread: comment-root-resolved] [resolved]
+- **@Alice Developer** - *1/15/2024* [thread: comment-root-resolved] [resolved]
 
   Resolved thread root comment.
 

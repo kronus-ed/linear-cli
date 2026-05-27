@@ -2,13 +2,13 @@ export const snapshot = {};
 
 snapshot[`Issue Comment List Command - Basic 1`] = `
 stdout:
-"@Test User commented 15/01/2024 [comment-uuid-101]
+"@Test User commented 1/15/2024 [comment-uuid-101]
 This is the second root comment
 
-@Test User commented 15/01/2024 [comment-uuid-456]
+@Test User commented 1/15/2024 [comment-uuid-456]
 This is the first comment
 
-  @Another User replied 15/01/2024 [comment-uuid-789]
+  @Another User replied 1/15/2024 [comment-uuid-789]
   This is a reply to the first comment
 
 "

@@ -86,6 +86,6 @@ export function formatRelativeTime(dateString: string): string {
   } else if (diffDays < 7) {
     return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`
   } else {
-    return commentDate.toLocaleDateString()
+    return commentDate.toLocaleDateString("en-US", { timeZone: "UTC" })
   }
 }

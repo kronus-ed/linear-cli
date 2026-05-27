@@ -66,7 +66,11 @@ export const membersCommand = new Command()
         }
         if (member.lastSeen) {
           const lastSeenDate = new Date(member.lastSeen)
-          console.log(`  Last seen: ${lastSeenDate.toLocaleString()}`)
+          console.log(
+            `  Last seen: ${
+              lastSeenDate.toLocaleString("en-US", { timeZone: "UTC" })
+            }`,
+          )
         }
         console.log("")
       }
